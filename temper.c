@@ -57,6 +57,7 @@ struct pcs_temper_data {
 	u8 *buffer;
 	unsigned int updated;
 	struct completion wait_input_report;
+	struct device *hwmon_dev;
 };
 
 static int pcs_temper_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
@@ -100,6 +101,43 @@ static bool should_load(struct hid_device *hdev) {
 	return strcmp(type, "Keyboard") != 0;
 }
 
+static umode_t pcs_temper_is_visible(const void *data, enum hwmon_sensor_types type,
+			      u32 attr, int channel) {
+	return 0444;
+}
+
+static int ccp_read(struct device *dev, enum hwmon_sensor_types type,
+		    u32 attr, int channel, long *val)
+{
+	struct rog_ryujin_data *priv = dev_get_drvdata(dev);
+	printk("ccp_read called.\n");
+	return 0;
+}
+
+static int ccp_write(struct device *dev, enum hwmon_sensor_types type,
+		    u32 attr, int channel, long *val) {
+	struct rog_ryujin_data *priv = dev_get_drvdata(dev);
+	printk("ccp_write called.\n");
+	return 0;
+}
+
+static const struct hwmon_ops temper_hwmon_ops = {
+	.is_visible = pcs_temper_is_visible,
+	.read = ccp_read,
+	// .write = ccp_write,
+};
+
+static const struct hwmon_channel_info *temper_info[] = {
+	HWMON_CHANNEL_INFO(temp,
+			   HWMON_T_INPUT),
+	NULL
+};
+
+static const struct hwmon_chip_info temper_chip_info = {
+	.ops = &temper_hwmon_ops,
+	.info = temper_info,
+};
+
 static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id *id) {
 
 	struct pcs_temper_data *priv;
@@ -131,6 +169,10 @@ static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id 
 	
 	hid_device_io_start(hdev);
 	init_completion(&priv->wait_input_report);
+
+
+	priv->hwmon_dev = hwmon_device_register_with_info(&hdev->dev, "temper",
+							  priv, &temper_chip_info, NULL);
 
 	// msleep(10000);
 
