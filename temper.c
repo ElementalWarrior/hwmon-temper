@@ -174,21 +174,10 @@ static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id 
 	priv->hwmon_dev = hwmon_device_register_with_info(&hdev->dev, "temper",
 							  priv, &temper_chip_info, NULL);
 
-	// msleep(10000);
-
 
     priv->buffer_size = CTRL_REPORT_SIZE;
 	int i = 0;
 	priv->buffer = devm_kzalloc(&hdev->dev, priv->buffer_size, GFP_KERNEL);
-	// priv->buffer[i++] = 0;
-	// priv->buffer[i++] = STATUS_REPORT_ID;
-	// priv->buffer[i++] = 0x86;
-	// priv->buffer[i++] = 0xff;
-	// priv->buffer[i++] = 0x1;
-	// priv->buffer[i++] = 0x0;
-	// priv->buffer[i++] = 0x0;
-	// priv->buffer[i++] = 0x0;
-	// priv->buffer[i++] = 0x0;
 
 	priv->buffer[i++] = STATUS_REPORT_ID;
 	priv->buffer[i++] = 0x80;
@@ -198,9 +187,6 @@ static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id 
 	priv->buffer[i++] = 0x0;
 	priv->buffer[i++] = 0x0;
 	priv->buffer[i++] = 0x0;
-
-		// msleep(200);
-
 	reinit_completion(&priv->wait_input_report);
 
 	hid_hw_output_report(priv->hdev, priv->buffer, priv->buffer_size);
@@ -208,41 +194,6 @@ static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id 
 	ret = wait_for_completion_timeout(&priv->wait_input_report, msecs_to_jiffies(REQ_TIMEOUT));
 	if (!ret)
 		goto fail_and_close;
-
-
-	// priv->buffer[i++] = STATUS_REPORT_ID;
-	// priv->buffer[i++] = 0x80;
-	// priv->buffer[i++] = 0x33;
-	// priv->buffer[i++] = 0x1;
-	// priv->buffer[i++] = 0x0;
-	// priv->buffer[i++] = 0x0;
-	// priv->buffer[i++] = 0x0;
-	// priv->buffer[i++] = 0x0;
-	// \x01\x80\x33\x01\x00\x00\x00\x00
-
-	// printk("sending buffer %llx %llx %llx %llx\n", (long long unsigned int)*priv->buffer, (long long unsigned int)*(priv->buffer+1), (long long unsigned int)*(priv->buffer+2), (long long unsigned int)*(priv->buffer+3));
-	// printk("got here\n");
-
-	/* Send the patched up report back to the device */
-	// ret = hid_hw_raw_request(priv->hdev, STATUS_REPORT_ID, priv->buffer, priv->buffer_size,
-	// 			 HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
-	// for (i = 0; i < 10; i++){
-	// 	hid_hw_output_report(priv->hdev, priv->buffer, priv->buffer_size);
-	// 	printk("ret2 %i\n", ret);
-	// 	if (ret < 0)
-	// 		goto fail_and_close;
-	// }
-
-	// msleep(2000);
-
-	// if (ret < 0)
-	// 	ret = -ENODATA;
-	// memset(priv->buffer, 0x00, priv->buffer_size);
-	// ret = hid_hw_raw_request(priv->hdev, STATUS_REPORT_ID, priv->buffer, priv->buffer_size,
-	// 			 HID_INPUT_REPORT, HID_REQ_GET_REPORT);
-	// printk("ret response %i\n", ret);
-
-	// printk("finished probe %llx %llx %llx %llx\n", (long long unsigned int)*priv->buffer, (long long unsigned int)*(priv->buffer+1), (long long unsigned int)*(priv->buffer+2), (long long unsigned int)*(priv->buffer+3));
 
 	hid_info(hdev, "finished\n");
 	goto fail_and_close;
