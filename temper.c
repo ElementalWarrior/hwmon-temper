@@ -70,8 +70,9 @@ static int pcs_temper_raw_event(struct hid_device *hdev, struct hid_report *repo
 		return 0;
 
 	short temp = (data[2]<<8) | data[3];
-	// this was originally  * 175.72 / 65536 - 46.85, but we can't do floating point math
-	int cels = (temp /100);
+	// hwmon expect C * 1000 it seems.
+	// temper expect value divided by 100.
+	int cels = (1000 * temp /100);
 	priv->temp = cels;
 
 	complete(&priv->wait_input_report);
