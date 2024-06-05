@@ -1,0 +1,10 @@
+modules.order
+Modules.symvers
+.ko
+.mod*
+.o
+.qcow2*
+*.cmd
+.vscode
+.tmp*
+
