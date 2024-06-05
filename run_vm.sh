@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# script used to develop this module. You'll need to download the arch cloud image
+# then use another cli tool to change the password
+
 # su root first
 
 qemu-system-x86_64 \
