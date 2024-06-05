@@ -1,10 +1,11 @@
 modules.order
-Modules.symvers
-.ko
-.mod*
-.o
-.qcow2*
+Module.symvers
+*.ko
+*.mod*
+*.o
+*.qcow2*
 *.cmd
 .vscode
 .tmp*
+.temper.o.d
 
