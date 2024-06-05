@@ -28,8 +28,8 @@ It looks like this usb stick is marketed towards Windows so you can double tap N
 
 There are a couple other repos to reference that do similar to this kernel module, but in user space.
 
-https://github.com/padelt/temper-python
-https://github.com/urwen/temper
+- https://github.com/padelt/temper-python
+- https://github.com/urwen/temper
 
 A bunch of this code was formed by hacking on bits and pieces of a number of existing linux kernel drivers for hwmon devices.
 
