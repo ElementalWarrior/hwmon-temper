@@ -6,6 +6,14 @@ This module allows reads of /sys/class/hwmon/hwmonX/temp1_input to read the temp
 
 ![temper usb image](image.png)
 
+## Motivation
+
+I wanted to be able to use a usb thermometer to control when fans speed up for my mini server hard drives.
+
+Fancontrol uses hwmon devices.
+
+Why not just use the temp sensors in a hard drive? Because it requires the drive powered on. Every time you read the temp sensor via SMART, it spins up the drive.
+
 ## Device support
 
 I only have a TEMPer Gold usb stick. I think it was version 3.5 or something. It didn't work with the userspace python libraries I linked below until I bumped the minor version in their code.
@@ -23,6 +31,25 @@ This module divides the temp data from the by 100. There appear to be some devic
 
 It looks like this usb stick is marketed towards Windows so you can double tap NumLock/CapsLock and write the temperature via keyboard input. Hence this device registers as a keyboard device. I won't be using that and don't care, so I filtered out the keyboard device in the should_load function.
 
+## Building
+
+To build the kernel module:
+
+```
+make
+```
+
+To install the module on OS, so it works when you plug in the device:
+
+```
+sudo make install
+```
+
+Without the below, you will have to install the module every time you reboot your machine. If you want it to load the module on start up:
+
+```
+echo "temper" | sudo tee /etc/modules-load.d/temper.conf
+```
 
 ## See Also
 
