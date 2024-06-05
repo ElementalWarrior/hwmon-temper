@@ -49,7 +49,7 @@ ffff9b7d1538dd80 179277815 C Ii:1:002:2 -2:8 0
 #define STATUS_REPORT_ID		0x01
 #define CTRL_REPORT_SIZE	0x08
 #define STATUS_UPDATE_INTERVAL		(2 * HZ)	/* In seconds */
-#define REQ_TIMEOUT		300
+#define REQ_TIMEOUT	300
 
 struct pcs_temper_data {
 	struct hid_device *hdev;
@@ -58,6 +58,7 @@ struct pcs_temper_data {
 	unsigned int updated;
 	struct completion wait_input_report;
 	struct device *hwmon_dev;
+	int temp;
 };
 
 static int pcs_temper_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
@@ -72,7 +73,9 @@ static int pcs_temper_raw_event(struct hid_device *hdev, struct hid_report *repo
 	short temp = (data[2]<<8) | data[3];
 	printk("temp %d\n", temp);
 	// this was originally  * 175.72 / 65536 - 46.85, but we can't do floating point math
-	printk("temp %d\n", (int)((temp /100)));
+	int cels = (temp /100);
+	printk("temp %d\n", (int)(cels));
+	priv->temp = cels;
 
 	complete(&priv->wait_input_report);
     return 0;
@@ -109,9 +112,29 @@ static umode_t pcs_temper_is_visible(const void *data, enum hwmon_sensor_types t
 static int ccp_read(struct device *dev, enum hwmon_sensor_types type,
 		    u32 attr, int channel, long *val)
 {
-	struct rog_ryujin_data *priv = dev_get_drvdata(dev);
-	printk("ccp_read called.\n");
-	return 0;
+	struct pcs_temper_data *priv = dev_get_drvdata(dev);
+
+    priv->buffer_size = CTRL_REPORT_SIZE;
+	int i = 0;
+	priv->buffer = devm_kzalloc(dev, priv->buffer_size, GFP_KERNEL);
+
+	priv->buffer[i++] = STATUS_REPORT_ID;
+	priv->buffer[i++] = 0x80;
+	priv->buffer[i++] = 0x33;
+	priv->buffer[i++] = 0x1;
+	priv->buffer[i++] = 0x0;
+	priv->buffer[i++] = 0x0;
+	priv->buffer[i++] = 0x0;
+	priv->buffer[i++] = 0x0;
+	reinit_completion(&priv->wait_input_report);
+
+	// not sure why, but I have to call this like 3 times to get a result. :shrug:
+	for (int i; i < 3; i++)
+		hid_hw_output_report(priv->hdev, priv->buffer, priv->buffer_size);
+
+	int ret = wait_for_completion_timeout(&priv->wait_input_report, msecs_to_jiffies(REQ_TIMEOUT));
+	*val = priv->temp;
+	return ret;
 }
 
 static int ccp_write(struct device *dev, enum hwmon_sensor_types type,
@@ -121,21 +144,21 @@ static int ccp_write(struct device *dev, enum hwmon_sensor_types type,
 	return 0;
 }
 
-static const struct hwmon_ops temper_hwmon_ops = {
+static const struct hwmon_ops pcs_temper_hwmon_ops = {
 	.is_visible = pcs_temper_is_visible,
 	.read = ccp_read,
 	// .write = ccp_write,
 };
 
-static const struct hwmon_channel_info *temper_info[] = {
+static const struct hwmon_channel_info *pcs_temper_info[] = {
 	HWMON_CHANNEL_INFO(temp,
 			   HWMON_T_INPUT),
 	NULL
 };
 
-static const struct hwmon_chip_info temper_chip_info = {
-	.ops = &temper_hwmon_ops,
-	.info = temper_info,
+static const struct hwmon_chip_info pcs_temper_chip_info = {
+	.ops = &pcs_temper_hwmon_ops,
+	.info = pcs_temper_info,
 };
 
 static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id *id) {
@@ -143,8 +166,8 @@ static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id 
 	struct pcs_temper_data *priv;
 	int ret;
 
-	// if (!should_load(hdev))
-	// 	goto fail_and_close;
+	if (!should_load(hdev))
+		goto fail_and_close;
 
 	priv = devm_kzalloc(&hdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -172,50 +195,28 @@ static int pcs_temper_probe(struct hid_device *hdev, const struct hid_device_id 
 
 
 	priv->hwmon_dev = hwmon_device_register_with_info(&hdev->dev, "temper",
-							  priv, &temper_chip_info, NULL);
+							  priv, &pcs_temper_chip_info, NULL);
 
 
-    priv->buffer_size = CTRL_REPORT_SIZE;
-	int i = 0;
-	priv->buffer = devm_kzalloc(&hdev->dev, priv->buffer_size, GFP_KERNEL);
 
-	priv->buffer[i++] = STATUS_REPORT_ID;
-	priv->buffer[i++] = 0x80;
-	priv->buffer[i++] = 0x33;
-	priv->buffer[i++] = 0x1;
-	priv->buffer[i++] = 0x0;
-	priv->buffer[i++] = 0x0;
-	priv->buffer[i++] = 0x0;
-	priv->buffer[i++] = 0x0;
-	reinit_completion(&priv->wait_input_report);
-
-	hid_hw_output_report(priv->hdev, priv->buffer, priv->buffer_size);
-
-	ret = wait_for_completion_timeout(&priv->wait_input_report, msecs_to_jiffies(REQ_TIMEOUT));
-	if (!ret)
-		goto fail_and_close;
-
-	hid_info(hdev, "finished\n");
-	goto fail_and_close;
+	return 0;
 
 fail_and_close:
 	hid_hw_close(hdev);
 fail_and_stop:
 	hid_hw_stop(hdev);
-	printk("end of probe\n");
 	return ret;
 }
 
 static void pcs_temper_remove(struct hid_device *hdev)
 {
-	// struct pcs_temper_data *priv = hid_get_drvdata(hdev);
+	struct pcs_temper_data *priv = hid_get_drvdata(hdev);
 
-	// debugfs_remove_recursive(priv->debugfs);
-	// hwmon_device_unregister(priv->hwmon_dev);
+	debugfs_remove_recursive(priv->debugfs);
+	hwmon_device_unregister(priv->hwmon_dev);
 
-	// if (!should_load(hdev))
-	// 	return;
-	// printk("remove temper\n");
+	if (!should_load(hdev))
+		return;
 	hid_device_io_stop(hdev);
 	hid_hw_close(hdev);
 	hid_hw_stop(hdev);
@@ -243,7 +244,6 @@ static int __init pcs_temper_init(void)
 
 static void __exit pcs_temper_exit(void)
 {
-	// printk("unload temper\n");
 	hid_unregister_driver(&pcs_temper_driver);
 }
 
