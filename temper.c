@@ -69,12 +69,9 @@ static int pcs_temper_raw_event(struct hid_device *hdev, struct hid_report *repo
 	if (completion_done(&priv->wait_input_report))
 		return 0;
 
-	printk("received buffer %llx %llx %llx %llx\n", (long long unsigned int)*data, (long long unsigned int)*(data+1), (long long unsigned int)*(data+2), (long long unsigned int)*(data+3));
 	short temp = (data[2]<<8) | data[3];
-	printk("temp %d\n", temp);
 	// this was originally  * 175.72 / 65536 - 46.85, but we can't do floating point math
 	int cels = (temp /100);
-	printk("temp %d\n", (int)(cels));
 	priv->temp = cels;
 
 	complete(&priv->wait_input_report);
@@ -129,7 +126,7 @@ static int ccp_read(struct device *dev, enum hwmon_sensor_types type,
 	reinit_completion(&priv->wait_input_report);
 
 	// not sure why, but I have to call this like 3 times to get a result. :shrug:
-	for (int i; i < 3; i++)
+	for (i = 0; i < 3; i++)
 		hid_hw_output_report(priv->hdev, priv->buffer, priv->buffer_size);
 
 	int ret = wait_for_completion_timeout(&priv->wait_input_report, msecs_to_jiffies(REQ_TIMEOUT));
@@ -137,17 +134,9 @@ static int ccp_read(struct device *dev, enum hwmon_sensor_types type,
 	return ret;
 }
 
-static int ccp_write(struct device *dev, enum hwmon_sensor_types type,
-		    u32 attr, int channel, long *val) {
-	struct rog_ryujin_data *priv = dev_get_drvdata(dev);
-	printk("ccp_write called.\n");
-	return 0;
-}
-
 static const struct hwmon_ops pcs_temper_hwmon_ops = {
 	.is_visible = pcs_temper_is_visible,
 	.read = ccp_read,
-	// .write = ccp_write,
 };
 
 static const struct hwmon_channel_info *pcs_temper_info[] = {
@@ -210,13 +199,13 @@ fail_and_stop:
 
 static void pcs_temper_remove(struct hid_device *hdev)
 {
-	struct pcs_temper_data *priv = hid_get_drvdata(hdev);
-
-	debugfs_remove_recursive(priv->debugfs);
-	hwmon_device_unregister(priv->hwmon_dev);
-
 	if (!should_load(hdev))
 		return;
+
+	struct pcs_temper_data *priv = hid_get_drvdata(hdev);
+
+	hwmon_device_unregister(priv->hwmon_dev);
+
 	hid_device_io_stop(hdev);
 	hid_hw_close(hdev);
 	hid_hw_stop(hdev);
